@@ -434,3 +434,5 @@ FodyWeavers.xsd
 !HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.runtimeconfig.json
 !HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.runtimeconfig.dev.json
 !HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.deps.json
+
+worker/.wrangler/
