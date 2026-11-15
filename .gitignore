@@ -426,3 +426,11 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# ===== HoYoLab-Proxy-Helper project =====
+*.hutao
+!HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.exe
+!HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.dll
+!HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.runtimeconfig.json
+!HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.runtimeconfig.dev.json
+!HutaoProxyPlugin/lib/ProxyHelper/ProxyHelper.deps.json

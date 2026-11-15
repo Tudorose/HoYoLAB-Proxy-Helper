@@ -1,0 +1,7 @@
+{
+  "name": "HoYoLAB Proxy Helper",
+  "id": "com.azhc.hutao-proxy",
+  "version": { "major": 1, "minor": 0, "patch": 0 },
+  "author": [ "user" ],
+  "description": "HoYoLAB API connectivity helper for Snap Hutao. Provides connection diagnostics and domain-redirection status via api.example.com."
+}

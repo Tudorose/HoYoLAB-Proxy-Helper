@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ProxyHelper</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- 直接编译插件里的共享源码,避免循环引用 -->
+  <ItemGroup>
+    <Compile Include="..\HutaoProxyPlugin\EmbeddedProxy.cs" />
+    <Compile Include="..\HutaoProxyPlugin\CertKit.cs" />
+    <Compile Include="..\HutaoProxyPlugin\PushbackStream.cs" />
+    <Compile Include="..\HutaoProxyPlugin\Logger.cs" />
+    <Compile Include="..\HutaoProxyPlugin\SystemProxySwitch.cs" />
+  </ItemGroup>
+
+</Project>
+
