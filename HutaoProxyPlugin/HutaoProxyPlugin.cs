@@ -45,7 +45,7 @@ public sealed class HutaoProxyPluginMain : HutaoPlugin
         enabledSetting.Register(runtimeId, "启用或禁用代理链路");
         proxyBaseSetting.Register(runtimeId, "反向代理地址");
             proxyTokenSetting.Register(runtimeId, "访问令牌,需与 Worker 端 PROXY_TOKEN 一致");
-        fastStartupSetting.Register(runtimeId, "开启:常驻辅助进程,重启胡桃零等待;关闭:代理随胡桃进程生死");
+        fastStartupSetting.Register(runtimeId, "开启:提前插件启动时机避免胡桃工具箱报错;关闭:胡桃工具箱可能出现一两个403报错显示网络异常,但不实际影响功能");
 
         if (runtimeId != Manifest.Id)
         {
