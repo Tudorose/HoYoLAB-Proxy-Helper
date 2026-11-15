@@ -1,0 +1,9 @@
+{
+  "name": "hoyolab-proxy-helper-installer",
+  "version": "1.0.0",
+  "description": "Installer for HoYoLAB Proxy Helper - Snap.Hutao.Remastered plugin (downloads the latest .hutao from GitHub Releases and installs it locally)",
+  "license": "MIT",
+  "bin": { "hoyolab-proxy-helper": "scripts/install.js" },
+  "scripts": { "install": "node scripts/install.js" },
+  "engines": { "node": ">=18" }
+}
