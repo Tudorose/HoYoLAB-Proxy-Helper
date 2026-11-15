@@ -11,6 +11,8 @@ internal static class HelperProcess
     public const int Port = 8888;
     private const string HelperName = "ProxyHelper";
     private static Process? process;
+    private static DataReceivedEventHandler? errHandler;
+    private static DataReceivedEventHandler? outHandler;
 
     /// <summary>确保辅助进程在运行(带休眠的自启 + 首次复制到稳定目录)。返回 false 表示拉起失败,调用方可退回进程内代理。</summary>
     public static bool EnsureRunning(string caDir, string ownAssemblyDir, string token = "", string upstreamHost = "")
@@ -20,6 +22,17 @@ internal static class HelperProcess
             if (IsPortAlive())
             {
                 Logger.Write("helper already running");
+                // 常驻模式下重新启用插件时 Run 键可能已被禁用流程移除, 这里补写。
+                string? existingExe = FindHelperExe(ownAssemblyDir);
+                if (existingExe != null)
+                {
+                    try
+                    {
+                        using var run = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+                        run?.SetValue("HutaoProxyPlugin", Path.Combine(caDir, HelperName + ".exe"), Microsoft.Win32.RegistryValueKind.String);
+                    }
+                    catch { }
+                }
                 return true;
             }
 
@@ -48,19 +61,28 @@ internal static class HelperProcess
             process = Process.Start(new ProcessStartInfo
             {
                 FileName = targetExe,
-                Arguments = $"--port {Port} --ca-dir \"{stableDir}\" --reassert" + (string.IsNullOrEmpty(token) ? "" : $" --token \"{token}\"") + (string.IsNullOrEmpty(upstreamHost) ? "" : $" --upstream \"{upstreamHost}\""),
                 UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
+                Arguments = $"--port {Port} --ca-dir \"{stableDir}\" --reassert --token \"{token}\" --upstream \"{upstreamHost}\"",
             });
-
-            // 由插件写入自启键(用稳定目录的绝对路径,避免辅助进程自写为空)
+            // 常驻模式: 写 Run 键, 登录时自启 helper, 保证开机后首次启动胡桃零窗口。
             try
             {
                 using var run = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
                 run?.SetValue("HutaoProxyPlugin", targetExe, Microsoft.Win32.RegistryValueKind.String);
             }
             catch { }
+            // OS 级保底: helper 加入 Job Object, 宿主死亡时内核立即终止它。
+            // 常驻模式下宿主(胡桃)退出不应杀 helper - 因此不使用 KILL_ON_JOB_CLOSE 绑定。
+            errHandler = (_, e) => { if (e.Data != null) Logger.Write($"[helper-stderr] {e.Data}"); };
+            outHandler = (_, e) => { if (e.Data != null) Logger.Write($"[helper-stdout] {e.Data}"); };
+            process.ErrorDataReceived += errHandler;
+            process.OutputDataReceived += outHandler;
+            process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
 
             // 等待监听就绪;辅助进程存活即视为成功(它自己会完成绑定并接管系统代理)
             for (int i = 0; i < 75; i++)
@@ -146,6 +168,25 @@ internal static class HelperProcess
             }
         }
         catch { }
+
+        // 关键: 解除对插件程序集代码的委托引用并释放 Process 对象,
+        // 否则默认上下文中的 Process 永久钉住 collectible ALC, 禁用后无法卸载。
+        try
+        {
+            if (process != null)
+            {
+                if (errHandler != null) process.ErrorDataReceived -= errHandler;
+                if (outHandler != null) process.OutputDataReceived -= outHandler;
+                process.Dispose();
+            }
+        }
+        catch { }
+        finally
+        {
+            process = null;
+            errHandler = null;
+            outHandler = null;
+        }
         try
         {
             using var run = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
@@ -155,6 +196,7 @@ internal static class HelperProcess
         SystemProxySwitch.Disable();
     }
 }
+
 
 
 
