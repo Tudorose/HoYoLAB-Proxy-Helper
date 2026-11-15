@@ -14,15 +14,16 @@ namespace HutaoProxyPlugin;
 
 /// <summary>
 /// Embedded HTTP(S) proxy. Rewrites HoYoLAB-family CONNECT tunnels through the
-/// reverse proxy (api.example.com) by TLS-terminating with a locally signed cert and
+/// reverse proxy (upstream worker) by TLS-terminating with a locally signed cert and
 /// re-issuing the request upstream. All other traffic is relayed untouched.
 /// </summary>
 internal sealed class EmbeddedProxy : IDisposable
 {
-    private const string UpstreamHost = "api.example.com";
     private static readonly string[] TargetSuffixes = { "hoyolab.com", "mihoyo.com", "hoyoverse.com", "yuanshen.com" };
 
     private readonly X509Certificate2 ca;
+    private readonly string token;
+    private readonly string upstreamHost;
     private readonly HttpClient upstream;
     private TcpListener? listener;
     private CancellationTokenSource? cts;
@@ -30,9 +31,11 @@ internal sealed class EmbeddedProxy : IDisposable
 
     public int Port { get; }
 
-    public EmbeddedProxy(X509Certificate2 ca, int port)
+    public EmbeddedProxy(X509Certificate2 ca, int port, string token, string upstreamHost)
     {
         this.ca = ca;
+        this.token = token;
+        this.upstreamHost = upstreamHost;
         Port = port;
         upstream = new HttpClient(new SocketsHttpHandler
         {
@@ -236,7 +239,7 @@ internal sealed class EmbeddedProxy : IDisposable
         }
     }
 
-    private static async Task<HttpRequestMessage?> ReadClientRequestAsync(SslStream tls, string originalHost, CancellationToken ct)
+    private async Task<HttpRequestMessage?> ReadClientRequestAsync(SslStream tls, string originalHost, CancellationToken ct)
     {
         byte[] leftover;
         string head;
@@ -256,7 +259,7 @@ internal sealed class EmbeddedProxy : IDisposable
             return null;
         }
         string path = first[1];
-        var request = new HttpRequestMessage(new HttpMethod(first[0]), new Uri($"https://{UpstreamHost}{path}"));
+        var request = new HttpRequestMessage(new HttpMethod(first[0]), new Uri($"https://{upstreamHost}{path}"));
 
         bool hasContentLength = false;
         long contentLength = 0;
@@ -287,7 +290,11 @@ internal sealed class EmbeddedProxy : IDisposable
             }
             request.Headers.TryAddWithoutValidation(name, value);
         }
-        request.Headers.Host = UpstreamHost;
+        request.Headers.Host = upstreamHost;
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.TryAddWithoutValidation("x-proxy-token", token);
+        }
 
         if (request.Method == HttpMethod.Get || request.Method == HttpMethod.Head)
         {
@@ -491,6 +498,7 @@ internal sealed class EmbeddedProxy : IDisposable
         }
     }
 }
+
 
 
 

@@ -13,7 +13,7 @@ namespace HutaoProxyPlugin;
 [PluginMain]
 public sealed class HutaoProxyPluginMain : HutaoPlugin
 {
-    private const string ProxyBase = "https://api.example.com";
+    private const string ProxyBase = "";
     private const string StoreDirName = "HutaoProxyPlugin";
 
     private X509Certificate2? ca;
@@ -21,6 +21,7 @@ public sealed class HutaoProxyPluginMain : HutaoPlugin
     private PluginSetting<bool>? enabledSetting;
     private PluginSetting<string>? proxyBaseSetting;
     private PluginSetting<bool>? fastStartupSetting;
+    private PluginSetting<string>? proxyTokenSetting;
     private bool helperRunning;
 
     public override void OnInstall()
@@ -39,10 +40,12 @@ public sealed class HutaoProxyPluginMain : HutaoPlugin
 
         enabledSetting = new PluginSetting<bool>(context.PluginService, "Enabled", true);
         proxyBaseSetting = new PluginSetting<string>(context.PluginService, "ProxyBase", ProxyBase);
+        proxyTokenSetting = new PluginSetting<string>(context.PluginService, "ProxyToken", "");
         fastStartupSetting = new PluginSetting<bool>(context.PluginService, "加快插件启动速度", true);
-        enabledSetting.Register(runtimeId, "Redirect HoYoLAB-family domains through the embedded proxy");
-        proxyBaseSetting.Register(runtimeId, "Reverse proxy base URL (forwards to bbs-api-os.hoyolab.com)");
-        fastStartupSetting.Register(runtimeId, "开启:使用常驻辅助进程,重启胡桃零等待;关闭:代理仅在胡桃运行期间存在(启动后约4秒内的请求可能失败,点击重试即可)");
+        enabledSetting.Register(runtimeId, "启用或禁用代理链路");
+        proxyBaseSetting.Register(runtimeId, "反向代理地址");
+            proxyTokenSetting.Register(runtimeId, "访问令牌,需与 Worker 端 PROXY_TOKEN 一致");
+        fastStartupSetting.Register(runtimeId, "开启:常驻辅助进程,重启胡桃零等待;关闭:代理随胡桃进程生死");
 
         if (runtimeId != Manifest.Id)
         {
@@ -113,16 +116,20 @@ public sealed class HutaoProxyPluginMain : HutaoPlugin
         if (helperRunning || proxy != null) return;
         if (ca == null) EnsureCaInstalled();
         bool fastStartup = fastStartupSetting?.Value ?? true;
+        string token = proxyTokenSetting?.Value ?? "";
+        string upstreamHost = "";
+        try { upstreamHost = new Uri(proxyBaseSetting?.Value ?? "").Host; } catch { }
+
         if (!fastStartup)
         {
-            // 关闭加快启动:不使用常驻辅助进程,退回进程内代理(方案A)
             HelperProcess.StopAndDeregister();
             Logger.Write("fast startup disabled, using in-process proxy");
         }
 
         if (fastStartup && HelperProcess.EnsureRunning(
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapHutaoRemastered", StoreDirName),
-                Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!))
+                System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapHutaoRemastered", StoreDirName),
+                System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!,
+                token))
         {
             helperRunning = true;
             Trace.WriteLine("[HutaoProxyPlugin] helper proxy is serving.");
@@ -134,7 +141,12 @@ public sealed class HutaoProxyPluginMain : HutaoPlugin
         {
             try
             {
-                proxy = new EmbeddedProxy(ca!, SystemProxySwitch.ListenPort);
+                if (string.IsNullOrEmpty(upstreamHost))
+                {
+                    Logger.Write("ProxyBase is empty; cannot start in-process proxy");
+                    return;
+                }
+                proxy = new EmbeddedProxy(ca!, SystemProxySwitch.ListenPort, token, upstreamHost);
                 proxy.Start();
                 SystemProxySwitch.Enable();
                 Trace.WriteLine($"[HutaoProxyPlugin] Embedded proxy listening on 127.0.0.1:{SystemProxySwitch.ListenPort}.");

@@ -13,7 +13,7 @@ internal static class HelperProcess
     private static Process? process;
 
     /// <summary>确保辅助进程在运行(带休眠的自启 + 首次复制到稳定目录)。返回 false 表示拉起失败,调用方可退回进程内代理。</summary>
-    public static bool EnsureRunning(string caDir, string ownAssemblyDir)
+    public static bool EnsureRunning(string caDir, string ownAssemblyDir, string token = "", string upstreamHost = "")
     {
         try
         {
@@ -48,7 +48,7 @@ internal static class HelperProcess
             process = Process.Start(new ProcessStartInfo
             {
                 FileName = targetExe,
-                Arguments = $"--port {Port} --ca-dir \"{stableDir}\" --reassert",
+                Arguments = $"--port {Port} --ca-dir \"{stableDir}\" --reassert" + (string.IsNullOrEmpty(token) ? "" : $" --token \"{token}\"") + (string.IsNullOrEmpty(upstreamHost) ? "" : $" --upstream \"{upstreamHost}\""),
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,

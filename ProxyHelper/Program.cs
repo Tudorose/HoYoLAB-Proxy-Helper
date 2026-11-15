@@ -9,11 +9,15 @@ using System.Security.Cryptography.X509Certificates;
 int port = 8888;
 string? caDir = null;
 bool reassert = false;
+string proxyToken = "";
+string upstreamHost = "";
 for (int i = 0; i < args.Length; i++)
 {
     if (args[i] == "--port" && i + 1 < args.Length) port = int.Parse(args[++i]);
     else if (args[i] == "--ca-dir" && i + 1 < args.Length) caDir = args[++i];
     else if (args[i] == "--reassert") reassert = true;
+    else if (args[i] == "--token" && i + 1 < args.Length) proxyToken = args[++i];
+    else if (args[i] == "--upstream" && i + 1 < args.Length) upstreamHost = args[++i];
 }
 if (caDir == null)
 {
@@ -33,7 +37,8 @@ if (!CertKit.IsCaInstalled(ca))
     CertKit.InstallCa(ca); // one-time Windows trust dialog
 }
 
-using var proxy = new EmbeddedProxy(ca, port);
+if (string.IsNullOrEmpty(upstreamHost)) { Console.Error.WriteLine("--upstream required"); return 2; }
+using var proxy = new EmbeddedProxy(ca, port, proxyToken, upstreamHost);
 proxy.Start();
 SystemProxySwitch.EnableIfUnowned();
 
