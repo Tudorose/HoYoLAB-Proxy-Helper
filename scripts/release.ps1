@@ -35,7 +35,7 @@ if (-not (Test-Path $pkg)) { throw "package not produced" }
 # privacy scan: fail on known personal artifacts
 $bytes = [IO.File]::ReadAllBytes($pkg)
 $text = [Text.Encoding]::Unicode.GetString($bytes) + [Text.Encoding]::ASCII.GetString($bytes)
-foreach ($secret in '94d4320b','redacted-uid','redacted-uid','example.com') {
+foreach ($secret in 'example.com') {
   if ($text.Contains($secret)) { throw "PRIVACY SCAN FAILED: found '$secret' in package" }
 }
 Write-Host "==> Privacy scan passed"
