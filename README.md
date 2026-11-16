@@ -45,11 +45,14 @@
 
 ### 第一步 · 部署 Worker
 
-1. Cloudflare 控制台创建 Worker，粘贴 `worker/worker.js`，配置环境变量 `PROXY_TOKEN`（自定义访问令牌）
+1. Cloudflare 控制台创建 Worker，粘贴 `worker/worker.js`，配置环境变量 `PROXY_TOKEN`（自定义访问令牌）。鉴权三通道任选：`x-proxy-token` 请求头 / `?t=<令牌>` 查询参数（自动种 Cookie）/ `proxy_token` Cookie
 2. 绑定自定义域名（二选一）：
    - `worker/wrangler.jsonc` 的 `routes` 加入 `{ "pattern": "api.你的域名", "custom_domain": true }`，执行 `wrangler deploy`
    - 或控制台 → Worker → Settings → Domains & Routes → Add → Custom domain
 3. 记下绑定地址，如 `https://api.你的域名`
+
+
+> 另支持 `/gh/<路径>` 前缀模式：`https://api.你的域名/gh/用户名/仓库` 可直接代理 GitHub 任意页面（通用镜像，不含任何私有域名）。
 
 ### 第二步 · 安装插件
 
@@ -106,3 +109,6 @@ powershell -File scripts/release.ps1 -Version 1.0.1
 ## 📄 License
 
 MIT
+
+
+
