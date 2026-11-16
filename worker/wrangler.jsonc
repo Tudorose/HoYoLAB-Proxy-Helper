@@ -2,5 +2,8 @@
   "name": "hoyolab-os-proxy",
   "main": "worker.js",
   "compatibility_date": "2026-11-01",
-  "workers_dev": true
+  // workers.dev 路由在国内 DNS 常被污染: 关闭默认路由与预览 URL,
+  // 通过 Cloudflare 控制台为 Worker 绑定自己的自定义域名后使用。
+  "workers_dev": false,
+  "preview_urls": false
 }
