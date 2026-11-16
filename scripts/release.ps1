@@ -32,10 +32,11 @@ if ($LASTEXITCODE -ne 0) { throw "plugin build failed" }
 $pkg = "HutaoProxyPlugin/bin/Debug/HutaoProxyPlugin.hutao"
 if (-not (Test-Path $pkg)) { throw "package not produced" }
 
-# privacy scan: fail on known personal artifacts
+# privacy scan: patterns come from $env:RELEASE_PRIVACY_PATTERNS (comma-separated), e.g. "mydomain.com,mytoken123"
 $bytes = [IO.File]::ReadAllBytes($pkg)
 $text = [Text.Encoding]::Unicode.GetString($bytes) + [Text.Encoding]::ASCII.GetString($bytes)
-foreach ($secret in 'example.com') {
+$patterns = ($env:RELEASE_PRIVACY_PATTERNS -split ',') | Where-Object { $_ }
+foreach ($secret in $patterns) {
   if ($text.Contains($secret)) { throw "PRIVACY SCAN FAILED: found '$secret' in package" }
 }
 Write-Host "==> Privacy scan passed"
