@@ -19,7 +19,7 @@
 // GitHub accepts the request.
 export default {
   async fetch(request, env) {
-    const expected = env.PROXY_TOKEN;
+    const expected = (env.PROXY_TOKEN || "").trim();
     const url = new URL(request.url);
     const tokenParam = url.searchParams.get("t");
     const cookieHeader = request.headers.get("cookie") || "";
@@ -112,3 +112,4 @@ export default {
     return new Response(resp.body, { status: resp.status, headers: out });
   },
 };
+

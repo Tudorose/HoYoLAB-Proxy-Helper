@@ -35,7 +35,15 @@ internal static class SystemProxySwitch
         if (key == null) return;
         var enable = key.GetValue("ProxyEnable");
         var server = key.GetValue("ProxyServer") as string;
-        bool unowned = (enable is int v && v == 0) || (server != null && server.Contains(":8888", StringComparison.Ordinal));
+        // A missing (deleted) ProxyEnable or ProxyServer value means the proxy
+        // is effectively off - treat it as unowned and take over. A non-zero
+        // ProxyEnable pointing at a foreign server is genuinely owned by
+        // another tool, so we leave it alone.
+        bool unowned =
+            enable == null ||
+            server == null ||
+            (enable is int v && v == 0) ||
+            (server != null && server.Contains($":{ListenPort}", StringComparison.Ordinal));
         if (unowned)
         {
             Enable();
@@ -64,5 +72,6 @@ internal static class WinInetNotify
     [System.Runtime.InteropServices.DllImport("wininet.dll", SetLastError = true)]
     public static extern bool InternetSetOption(nint hInternet, int dwOption, nint lpBuffer, int dwBufferLength);
 }
+
 
 
