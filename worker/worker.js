@@ -1,12 +1,15 @@
 // worker.js — HoYoLAB reverse proxy worker.
 //
-// Access control: every request must carry `x-proxy-token` equal to the
+// Access control: every request must carry the proxy token equal to the
 // PROXY_TOKEN secret configured for this Worker (Cloudflare dashboard ->
-// Workers -> Settings -> Variables and Secrets). Requests without it are
+// Workers -> Settings -> Variables and Secrets). The token is read via the
+// `x-proxy-token` request header. Requests without a valid token are
 // rejected with 403 before any upstream traffic happens.
 export default {
   async fetch(request, env) {
-    const expected = env.PROXY_TOKEN;
+    // Trim guards against tokens uploaded with a trailing newline (e.g. via
+    // PowerShell pipelines), which would otherwise never match.
+    const expected = (env.PROXY_TOKEN || "").trim();
     if (!expected || request.headers.get("x-proxy-token") !== expected) {
       return new Response("Forbidden", { status: 403 });
     }
