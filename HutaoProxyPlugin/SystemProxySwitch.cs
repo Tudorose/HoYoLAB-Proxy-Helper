@@ -54,6 +54,32 @@ internal static class SystemProxySwitch
         }
     }
 
+    // ---- Machine scope (used by the SYSTEM service at boot) ----
+    // HKLM proxy + ProxySettingsPerUser=0 makes the proxy apply to every user
+    // session, independent of per-user logon.
+
+    public static void EnableMachine()
+    {
+        try
+        {
+            using var policy = Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Policies\Microsoft\Windows\CurrentVersion\Internet Settings", writable: true);
+            policy?.SetValue("ProxySettingsPerUser", 0, RegistryValueKind.DWord);
+        }
+        catch { }
+        using RegistryKey? key = Registry.LocalMachine.OpenSubKey(KeyPath, writable: true);
+        if (key == null) return;
+        key.SetValue("ProxyEnable", 1, RegistryValueKind.DWord);
+        key.SetValue("ProxyServer", $"127.0.0.1:{ListenPort}", RegistryValueKind.String);
+    }
+
+    public static void DisableMachine()
+    {
+        using RegistryKey? key = Registry.LocalMachine.OpenSubKey(KeyPath, writable: true);
+        if (key == null) return;
+        key.SetValue("ProxyEnable", 0, RegistryValueKind.DWord);
+    }
+
     private static void TryNotify()
     {
         try
@@ -72,6 +98,7 @@ internal static class WinInetNotify
     [System.Runtime.InteropServices.DllImport("wininet.dll", SetLastError = true)]
     public static extern bool InternetSetOption(nint hInternet, int dwOption, nint lpBuffer, int dwBufferLength);
 }
+
 
 
 

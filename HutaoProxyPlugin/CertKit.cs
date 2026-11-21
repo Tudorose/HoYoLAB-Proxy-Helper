@@ -92,9 +92,9 @@ internal static class CertKit
         return outN;
     }
 
-    public static bool IsCaInstalled(X509Certificate2 ca)
+    public static bool IsCaInstalled(X509Certificate2 ca, StoreLocation location = StoreLocation.CurrentUser)
     {
-        using X509Store store = new(StoreName.Root, StoreLocation.CurrentUser);
+        using X509Store store = new(StoreName.Root, location);
         store.Open(OpenFlags.ReadOnly);
         foreach (X509Certificate2 c in store.Certificates)
         {
@@ -106,9 +106,9 @@ internal static class CertKit
         return false;
     }
 
-    public static void InstallCa(X509Certificate2 ca)
+    public static void InstallCa(X509Certificate2 ca, StoreLocation location = StoreLocation.CurrentUser)
     {
-        using X509Store store = new(StoreName.Root, StoreLocation.CurrentUser);
+        using X509Store store = new(StoreName.Root, location);
         store.Open(OpenFlags.ReadWrite);
         if (!store.Certificates.Contains(ca))
         {
@@ -116,11 +116,11 @@ internal static class CertKit
         }
     }
 
-    public static void UninstallCa(X509Certificate2 ca)
+    public static void UninstallCa(X509Certificate2 ca, StoreLocation location = StoreLocation.CurrentUser)
     {
         try
         {
-            using X509Store store = new(StoreName.Root, StoreLocation.CurrentUser);
+            using X509Store store = new(StoreName.Root, location);
             store.Open(OpenFlags.ReadWrite);
             foreach (X509Certificate2 c in store.Certificates)
             {
@@ -134,5 +134,6 @@ internal static class CertKit
         {
         }
     }
-}
 
+
+}
