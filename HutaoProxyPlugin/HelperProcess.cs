@@ -31,14 +31,14 @@ internal static class HelperProcess
                 {
                     Logger.Write("helper already running");
                 }
-                // 常驻模式下重新启用插件时 Run 键可能已被禁用流程移除, 这里补写。
+                // 启动时模式: 不写登录自启 Run 键; 清理可能残留的旧键。
                 string? existingExe = FindHelperExe(ownAssemblyDir);
                 if (existingExe != null)
                 {
                     try
                     {
                         using var run = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
-                        run?.SetValue("HutaoProxyPlugin", Path.Combine(caDir, HelperName + ".exe"), Microsoft.Win32.RegistryValueKind.String);
+                        run?.DeleteValue("HutaoProxyPlugin", throwOnMissingValue: false);
                     }
                     catch { }
                 }
@@ -77,11 +77,11 @@ internal static class HelperProcess
                 WindowStyle = ProcessWindowStyle.Hidden,
                 Arguments = $"--port {Port} --ca-dir \"{stableDir}\" --reassert --token \"{token}\" --upstream \"{upstreamHost}\"",
             });
-            // 常驻模式: 写 Run 键, 登录时自启 helper, 保证开机后首次启动胡桃零窗口。
+            // 启动时模式: 由胡桃启动时拉起, 不写登录自启 Run 键; 清理残留旧键。
             try
             {
                 using var run = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
-                run?.SetValue("HutaoProxyPlugin", targetExe, Microsoft.Win32.RegistryValueKind.String);
+                run?.DeleteValue("HutaoProxyPlugin", throwOnMissingValue: false);
             }
             catch { }
             // OS 级保底: helper 加入 Job Object, 宿主死亡时内核立即终止它。

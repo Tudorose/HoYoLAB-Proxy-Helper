@@ -82,16 +82,16 @@ if (proxy == null)
 }
 SystemProxySwitch.EnableIfUnowned();
 
-// 兜底: 确保 Run 自启键存在 (插件也会写)。
+// 启动时模式: helper 由胡桃启动时拉起, 不再登录自启。清理旧 Run 键避免开机拉起。
 try
 {
     using var run = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
-    run?.SetValue("HutaoProxyPlugin", Environment.ProcessPath ?? "", RegistryValueKind.String);
+    run?.DeleteValue("HutaoProxyPlugin", throwOnMissingValue: false);
 }
 catch { }
 
 
-// 生命周期: 常驻模式。登录自启(Run 键), 独立于胡桃生死; 仅卸载插件时停止。
+// 生命周期: 随胡桃启动由插件拉起 (不再登录自启); 仅卸载插件时停止。
 // 宿主(胡桃)退出/崩溃不影响本进程 - 零窗口形态的基础。
 
 Logger.Write($"helper started, port={port}, reassert={reassert}");
