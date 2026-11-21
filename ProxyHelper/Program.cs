@@ -109,6 +109,14 @@ public static class ProxyHelperMain
         {
         Logger.Write("step: machine branch entered");
             Logger.Write("machine branch entered");
+            // 启动时模式: 清理可能残留的旧 Run 键 (含用户登录自启时代留下的 HKCU 键)。
+            try
+            {
+                using var runCleanup = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+                runCleanup?.DeleteValue("HutaoProxyPlugin", throwOnMissingValue: false);
+            }
+            catch { }
+
             // 安全网: 任何在启用代理之后发生的崩溃, 先尽力关闭代理再退出。
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             {
