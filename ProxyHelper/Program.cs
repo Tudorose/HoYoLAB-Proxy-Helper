@@ -26,7 +26,11 @@ public static class ProxyHelperMain
 
     public static int Run(string[] args)
     {
+    try
+    {
+    Logger.Write("Run entered");
         if (args.Length == 0)
+        Logger.Write("step: parsed config");
         {
             try
             {
@@ -46,6 +50,7 @@ public static class ProxyHelperMain
         }
         for (int i = 0; i < args.Length; i++)
         {
+        Logger.Write("step: cli parse done");
             if (args[i] == "--port" && i + 1 < args.Length) port = int.Parse(args[++i]);
             else if (args[i] == "--ca-dir" && i + 1 < args.Length) caDir = args[++i];
             else if (args[i] == "--reassert") reassert = true;
@@ -64,20 +69,25 @@ public static class ProxyHelperMain
         {
             return 0; // already running
         }
+        Logger.Write("step: mutex acquired");
 
         X509Certificate2 ca = CertKit.LoadOrCreateCa(caDir);
+        X509Certificate2 caPublicOnly = new X509Certificate2(ca.Export(X509ContentType.Cert)); // no private key
         var storeLocation = machineScope ? StoreLocation.LocalMachine : StoreLocation.CurrentUser;
-        if (!CertKit.IsCaInstalled(ca, storeLocation))
+        Logger.Write("step: ca loaded");
+        if (!CertKit.IsCaInstalled(caPublicOnly, storeLocation))
         {
-            CertKit.InstallCa(ca, storeLocation);
+            CertKit.InstallCa(caPublicOnly, storeLocation);
         }
 
         if (string.IsNullOrEmpty(upstreamHost)) { Console.Error.WriteLine("--upstream required"); return 2; }
+        Logger.Write("step: upstream ok");
         for (int attempt = 1; attempt <= 30; attempt++)
         {
             try
             {
                 proxy = new EmbeddedProxy(ca, port, proxyToken, upstreamHost);
+            Logger.Write("step: proxy constructing");
                 proxy.Start();
                 break;
             }
@@ -97,10 +107,38 @@ public static class ProxyHelperMain
 
         if (machineScope)
         {
-            // SYSTEM 上下文: 机器级代理, 对所有用户会话生效。
-            SystemProxySwitch.EnableMachine();
-            if (reassert) StartMachineReassertLoop();
-            Logger.Write($"helper started (machine scope), port={port}, reassert={reassert}");
+        Logger.Write("step: machine branch entered");
+            Logger.Write("machine branch entered");
+            // 安全网: 任何在启用代理之后发生的崩溃, 先尽力关闭代理再退出。
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
+                try { SystemProxySwitch.DisableMachine(); } catch { }
+                try { Logger.Write("machine-mode crashed: " + e.ExceptionObject); } catch { }
+            };
+
+            // 确认端口确实在监听之后才允许打开系统代理。
+            bool listening = false;
+            for (int i = 0; i < 50; i++)
+            {
+                Thread.Sleep(100);
+                if (System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties()
+                    .GetActiveTcpListeners().Any(p => p.Port == port)) { listening = true; break; }
+            }
+            if (!listening) { Console.Error.WriteLine("port not listening, proxy NOT enabled"); return 4; }
+
+            // 所有可能失败的步骤都已通过, 现在才打开系统代理。
+            try
+            {
+                SystemProxySwitch.EnableMachine();
+                if (reassert) StartMachineReassertLoop();
+                Logger.Write($"helper started (machine scope), port={port}, reassert={reassert}");
+            }
+            catch (Exception ex)
+            {
+                try { SystemProxySwitch.DisableMachine(); } catch { }
+                Console.Error.WriteLine("machine enable failed: " + ex.Message);
+                return 5;
+            }
 
             // 驻留运行, 直到系统关机或进程被杀。
             Thread.Sleep(Timeout.Infinite);
@@ -149,6 +187,13 @@ public static class ProxyHelperMain
 
         Thread.Sleep(Timeout.Infinite);
         return 0;
+    }
+    catch (Exception ex)
+    {
+        try { System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "crash.txt"), ex.ToString()); } catch { }
+        Logger.Write("FATAL: " + ex.ToString());
+        return 99;
+    }
     }
 
     private static void StartMachineReassertLoop()

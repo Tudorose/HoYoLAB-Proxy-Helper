@@ -15,6 +15,7 @@ internal static class Logger
         try
         {
             lock (Lock)
+                Directory.CreateDirectory(Dir);
             {
                 File.AppendAllText(Path.Combine(Dir, "proxy.log"),
                     DateTime.Now.ToString("HH:mm:ss.fff") + " " + message + Environment.NewLine);
