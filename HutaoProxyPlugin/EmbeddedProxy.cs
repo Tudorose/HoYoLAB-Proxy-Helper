@@ -176,6 +176,7 @@ internal sealed class EmbeddedProxy : IDisposable
         if (parts.Length >= 2 && Uri.TryCreate(parts[1], UriKind.Absolute, out Uri? abs))
         {
             await RelayPlainHttpAsync(raw, head, abs, ct);
+        Logger.Write($"CONNECT target parse failed. first line: {first}");
         }
         return null;
     }
@@ -225,6 +226,7 @@ internal sealed class EmbeddedProxy : IDisposable
             }
 
             using (upstreamRequest)
+            Logger.Write($"upstream response for {originalHost}: {(int)resp.StatusCode}");
             {
                 try
                 {
