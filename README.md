@@ -106,6 +106,13 @@ powershell -File scripts/release.ps1 -Version 1.0.1
 - 访问令牌仅保存在本地插件设置中，随请求头发送给**你自己配置的** Worker
 - 仓库源码不含任何令牌、账号或个人域名配置
 
+## 🤖 问题分诊（Triage）
+
+仓库内置 AI 分诊 Agent：issue / PR 打开或收到评论时自动**分类 + 判定状态 + 打标签 + 写分诊说明**，每天兜底扫描未分诊条目。
+
+- 分类：`bug` / `enhancement`；状态：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`
+- Agent **只分类不关闭** issue，所有评论都带 AI 免责声明
+- 配置与用法见 [docs/TRIAGE.md](docs/TRIAGE.md)
 ## 📄 License
 
 MIT

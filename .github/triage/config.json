@@ -1,0 +1,63 @@
+{
+  "language": "zh-CN",
+  "disclaimer": "> *本评论由 AI 在 triage（问题分诊）过程中自动生成。*",
+  "repoSummary": "HoYoLAB-Proxy-Helper 是 Snap.Hutao.Remastered（胡桃工具箱）的插件：通过自建 Cloudflare Worker 反向代理 + 本地 TLS 改写代理，解决中国大陆直连 HoYoLAB 被 Cloudflare 403 拦截的问题。组成：HutaoProxyPlugin（C# 插件，嵌入 TLS 改写代理）、ProxyHelper（常驻辅助进程，登录自启）、worker/（Cloudflare Worker 反代）。",
+  "domainTerms": {
+    "403 / Cloudflare 拦截": "核心故障场景；若用户描述直连 HoYoLAB 返回 403 或被 Cloudflare 盾拦截，通常判为 bug",
+    "ProxyBase / ProxyToken": "插件设置项；配置错误、填错地址、令牌不匹配通常属于配置类问题，判 needs-info 并给出具体核对步骤",
+    "CA 证书": "证书安装/卸载/信任失败相关问题",
+    "系统代理 / 8888": "ProxyHelper 监听端口与系统代理切换；切换失败、代理残留通常判 bug",
+    "Worker / 自定义域名 / workers.dev": "Worker 部署与域名绑定；域名未绑定、workers.dev 被污染通常属于文档/配置问题",
+    "Run 键 / 登录自启 / 加快插件启动速度": "helper 常驻模式相关",
+    "--machine 模式": "机器级代理（SYSTEM 计划任务），涉及权限与计划任务",
+    "collectible ALC": "插件卸载/重载机制；禁用后立刻启用失败是已知限制，判 wontfix 或 documentation"
+  },
+  "knownLimitations": [
+    "禁用后立即启用插件可能失败（collectible ALC 异步卸载，约 1~3 分钟），稍候重试即可",
+    "关闭「加快插件启动速度」时，胡桃启动后最初几秒的 HoYoLAB 请求可能 403",
+    "workers.dev 默认路由在国内 DNS 污染严重，必须绑定自定义域名"
+  ],
+  "labels": {
+    "category": {
+      "bug": "bug",
+      "enhancement": "enhancement"
+    },
+    "state": [
+      "needs-triage",
+      "needs-info",
+      "ready-for-agent",
+      "ready-for-human",
+      "wontfix"
+    ],
+    "extra": [
+      "question",
+      "duplicate",
+      "documentation",
+      "invalid"
+    ]
+  },
+  "labelColors": {
+    "needs-triage": "fbca04",
+    "needs-info": "d4c5f9",
+    "ready-for-agent": "0e8a16",
+    "ready-for-human": "1d76db",
+    "wontfix": "ffffff"
+  },
+  "coreFiles": [
+    "README.md",
+    "HutaoProxyPlugin/HutaoProxyPlugin.cs",
+    "HutaoProxyPlugin/EmbeddedProxy.cs",
+    "ProxyHelper/Program.cs",
+    "worker/worker.js"
+  ],
+  "skipLogins": [
+    "github-actions[bot]",
+    "dependabot[bot]"
+  ],
+  "maxContextChars": 24000,
+  "maxDiffChars": 16000,
+  "maxCommentChars": 6000,
+  "maxSweep": 8,
+  "autoApply": true,
+  "autoCloseWontfix": false
+}
