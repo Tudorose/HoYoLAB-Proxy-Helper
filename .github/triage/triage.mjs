@@ -397,7 +397,16 @@ export async function callLLM(messages, { baseUrl, apiKey, model, hint = '' }) {
     const text = await res.text().catch(() => '');
     throw new Error(`LLM 请求失败 HTTP ${res.status}：${text.slice(0, 300)}${hint ? `\n${hint}` : ''}`);
   }
-  const data = await res.json();
+  const raw = await res.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `LLM 返回了非 JSON 响应（HTTP ${res.status}，content-type: ${res.headers.get('content-type') || '?'}）：${raw.slice(0, 120)}` +
+        (hint ? `\n${hint}` : ''),
+    );
+  }
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('LLM 返回空内容');
   return content;
@@ -582,7 +591,7 @@ async function main(argv) {
     apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || (useGithubModels ? process.env.GITHUB_TOKEN : ''),
     model,
     hint: useGithubModels
-      ? '提示：GitHub Models 需要 Actions 的 models: read 权限；若仍失败，可在仓库 Secret 配置 AI_API_KEY 并按需设置 AI_BASE_URL / AI_MODEL。'
+      ? '提示：GitHub Models 未对该仓库开放（网关返回占位响应 "OK"）。请在仓库 Secret 配置 AI_API_KEY，并按需设置 AI_BASE_URL / AI_MODEL。'
       : '',
   };
 
