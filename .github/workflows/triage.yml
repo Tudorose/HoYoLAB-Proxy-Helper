@@ -31,6 +31,11 @@ on:
         description: '临时覆盖接口地址（调试用，留空用仓库配置）'
         required: false
         type: string
+      debug:
+        description: '打印候选模型端点的原始响应（诊断用）'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,6 +69,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: 诊断模型端点
+        if: ${{ inputs.debug == true }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          for u in \
+            "https://models.github.ai/inference/chat/completions" \
+            "https://models.github.ai/inference/v1/chat/completions" \
+            "https://models.github.ai/v1/chat/completions" \
+            "https://api.github.com/models/inference/chat/completions" \
+            "https://models.github.ai/catalog/models"
+          do
+            echo "=== POST $u"
+            code=$(curl -sS -o /tmp/body -w '%{http_code}' --max-time 20 -X POST "$u" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
+              -d '{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}')
+            echo "status=$code bytes=$(wc -c < /tmp/body)"
+            head -c 300 /tmp/body; echo
+            echo
+          done
 
       - name: 解析目标条目
         id: target
