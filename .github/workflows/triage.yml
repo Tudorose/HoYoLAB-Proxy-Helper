@@ -106,8 +106,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
-          AI_MODEL: ${{ secrets.AI_MODEL }}
+          # Variables 优先，其次 Secrets —— 两个分区都可以放
+          AI_BASE_URL: ${{ vars.AI_BASE_URL || secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ vars.AI_MODEL || secrets.AI_MODEL }}
           TRIAGE_DRY_RUN: ${{ (inputs.dry_run == true) && 'true' || 'false' }}
         run: |
           node .github/triage/triage.mjs ${{ steps.target.outputs.args }} \
