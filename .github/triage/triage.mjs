@@ -378,8 +378,8 @@ async function buildRepoContext(gh, cfg, item) {
 /* LLM                                                                 */
 /* ------------------------------------------------------------------ */
 
-export async function callLLM(messages, { baseUrl, apiKey, model }) {
-  if (!apiKey) throw new Error('缺少 AI_API_KEY（或 OPENAI_API_KEY）环境变量');
+export async function callLLM(messages, { baseUrl, apiKey, model, hint = '' }) {
+  if (!apiKey) throw new Error('缺少 AI_API_KEY（或 GITHUB_TOKEN，用于 GitHub Models）环境变量');
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const payload = { model, messages, temperature: 0.2 };
 
@@ -395,7 +395,7 @@ export async function callLLM(messages, { baseUrl, apiKey, model }) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`LLM 请求失败 HTTP ${res.status}：${text.slice(0, 300)}`);
+    throw new Error(`LLM 请求失败 HTTP ${res.status}：${text.slice(0, 300)}${hint ? `\n${hint}` : ''}`);
   }
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content;
@@ -562,10 +562,16 @@ async function main(argv) {
     api: process.env.GITHUB_API_URL || 'https://api.github.com',
   });
 
+  // 未配置 AI_API_KEY 时，回退到 GitHub Models（用 GITHUB_TOKEN 鉴权，无需额外密钥）
+  const hasProviderKey = Boolean(process.env.AI_API_KEY || process.env.OPENAI_API_KEY);
+  const useGithubModels = !hasProviderKey && Boolean(process.env.GITHUB_TOKEN);
   const llm = {
-    baseUrl: process.env.AI_BASE_URL || 'https://api.openai.com/v1',
-    apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || '',
-    model: process.env.AI_MODEL || 'gpt-4o-mini',
+    baseUrl: process.env.AI_BASE_URL || (useGithubModels ? 'https://models.github.ai/inference' : 'https://api.openai.com/v1'),
+    apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || (useGithubModels ? process.env.GITHUB_TOKEN : ''),
+    model: process.env.AI_MODEL || (useGithubModels ? 'openai/gpt-4o-mini' : 'gpt-4o-mini'),
+    hint: useGithubModels
+      ? '提示：GitHub Models 需要 Actions 的 models: read 权限；若仍失败，可在仓库 Secret 配置 AI_API_KEY 并按需设置 AI_BASE_URL / AI_MODEL。'
+      : '',
   };
 
   const promptTemplate = await fs.readFile(new URL('./prompt.md', import.meta.url), 'utf8');

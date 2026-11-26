@@ -14,16 +14,18 @@ Agent **只做分类与说明**：不会关闭 issue、不会改代码、不会�
 
 | 名称 | 必填 | 说明 |
 |---|---|---|
-| `AI_API_KEY` | ✅ | 兼容 OpenAI 接口的密钥 |
+| `AI_API_KEY` | ✅ | 兼容 OpenAI 接口的密钥（DeepSeek 为 `sk-...`） |
 
-可选 **Variables**（同名页面，选 *Variables* 而不是 *Secrets*）：
+可选 **Secrets**（同样在 Actions secrets 页面添加，不需要 `actions` 管理权限即可由 CI 使用）：
 
 | 名称 | 默认值 | 说明 |
 |---|---|---|
 | `AI_BASE_URL` | `https://api.openai.com/v1` | 任意 OpenAI 兼容接口地址 |
 | `AI_MODEL` | `gpt-4o-mini` | 模型名 |
 
-> 也可以不建 Variable，直接改 `.github/workflows/triage.yml` 里的默认值。
+当前已配置为 DeepSeek：`AI_BASE_URL=https://api.deepseek.com/v1`、`AI_MODEL=deepseek-chat`。
+
+> 未配置 `AI_API_KEY` 时，脚本会自动回退到 **GitHub Models**（用 `GITHUB_TOKEN` 鉴权，模型 `openai/gpt-4o-mini`），此时无需任何密钥。
 
 ### ② 推送工作流
 

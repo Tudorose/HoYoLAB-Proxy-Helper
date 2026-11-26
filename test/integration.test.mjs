@@ -169,17 +169,32 @@ test('端到端：dry-run 不写入任何内容', async (t) => {
   assert.match(r.stdout, /将要发布的评论/);
 });
 
-test('端到端：缺少 AI_API_KEY 时给出明确错误', async (t) => {
+test('端到端：无 AI_API_KEY 且无 GITHUB_TOKEN 时给出明确错误', async (t) => {
   const state = { calls: [], labelAdds: [], labelDels: [], commentAdds: [], issue: ISSUE, comments: [] };
   const server = await startServer(state);
   t.after(() => server.close());
 
   const { port } = server.address();
-  const r = await runChild(['--number', '5'], {
+  // baseEnv 里带 GITHUB_TOKEN；这里显式清空，模拟既无模型密钥也无 GitHub 令牌
+  const env = { ...baseEnv(port), GITHUB_TOKEN: '', AI_API_KEY: '', OPENAI_API_KEY: '' };
+  const r = await runChild(['--number', '5'], env);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /GITHUB_TOKEN/);
+});
+
+test('端到端：无 AI_API_KEY 时回退 GitHub Models', async (t) => {
+  const state = { calls: [], labelAdds: [], labelDels: [], commentAdds: [], issue: ISSUE, comments: [] };
+  const server = await startServer(state);
+  t.after(() => server.close());
+
+  const { port } = server.address();
+  const r = await runChild(['--number', '5', '--dry-run'], {
     ...baseEnv(port),
     AI_API_KEY: '',
     OPENAI_API_KEY: '',
+    AI_BASE_URL: `http://127.0.0.1:${port}/v1`,
+    AI_MODEL: 'mock-model',
   });
-  assert.equal(r.code, 1);
-  assert.match(r.stderr, /AI_API_KEY/);
+  assert.equal(r.code, 0, `stderr: ${r.stderr}`);
+  assert.match(r.stdout, /分诊记录/);
 });

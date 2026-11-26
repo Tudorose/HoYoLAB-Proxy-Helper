@@ -28,6 +28,7 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+  models: read
 
 concurrency:
   group: triage-${{ github.event.issue.number || github.event.pull_request.number || 'sweep' }}
@@ -105,8 +106,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          AI_BASE_URL: ${{ vars.AI_BASE_URL || 'https://api.openai.com/v1' }}
-          AI_MODEL: ${{ vars.AI_MODEL || 'gpt-4o-mini' }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
           TRIAGE_DRY_RUN: ${{ (inputs.dry_run == true) && 'true' || 'false' }}
         run: |
           node .github/triage/triage.mjs ${{ steps.target.outputs.args }} \
