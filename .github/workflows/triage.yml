@@ -23,6 +23,14 @@ on:
         required: false
         type: boolean
         default: false
+      model:
+        description: '临时覆盖模型名（调试用，留空用仓库配置）'
+        required: false
+        type: string
+      base_url:
+        description: '临时覆盖接口地址（调试用，留空用仓库配置）'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -65,6 +73,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           IS_PR: ${{ github.event.issue.pull_request != null }}
           INPUT_NUMBER: ${{ inputs.issue_number }}
+          INPUT_MODEL: ${{ inputs.model }}
+          INPUT_BASE_URL: ${{ inputs.base_url }}
           REPO_OWNER: ${{ github.repository_owner }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         shell: bash
@@ -97,6 +107,9 @@ jobs:
               if [ -n "${INPUT_NUMBER}" ]; then args="--number ${INPUT_NUMBER}"; else args="--all"; fi
               ;;
           esac
+          # 调试用：临时覆盖模型与接口地址
+          if [ -n "${INPUT_MODEL}" ]; then args="$args --model ${INPUT_MODEL}"; fi
+          if [ -n "${INPUT_BASE_URL}" ]; then args="$args --base-url ${INPUT_BASE_URL}"; fi
           echo "args=$args" >> "$GITHUB_OUTPUT"
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
           echo "将执行: node .github/triage/triage.mjs $args"

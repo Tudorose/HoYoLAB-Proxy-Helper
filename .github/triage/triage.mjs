@@ -505,7 +505,7 @@ async function sweep(gh, cfg, llm, promptText, opts = {}) {
 /* ------------------------------------------------------------------ */
 
 function parseArgs(argv) {
-  const args = { number: null, kind: 'issue', all: false, dryRun: false, force: false, summaryFile: null, config: null };
+  const args = { number: null, kind: 'issue', all: false, dryRun: false, force: false, summaryFile: null, config: null, model: null, baseUrl: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--all') args.all = true;
@@ -515,6 +515,8 @@ function parseArgs(argv) {
     else if (a === '--kind') args.kind = argv[++i];
     else if (a === '--summary-file') args.summaryFile = argv[++i];
     else if (a === '--config') args.config = argv[++i];
+    else if (a === '--model') args.model = argv[++i];
+    else if (a === '--base-url') args.baseUrl = argv[++i];
   }
   return args;
 }
@@ -565,10 +567,20 @@ async function main(argv) {
   // 未配置 AI_API_KEY 时，回退到 GitHub Models（用 GITHUB_TOKEN 鉴权，无需额外密钥）
   const hasProviderKey = Boolean(process.env.AI_API_KEY || process.env.OPENAI_API_KEY);
   const useGithubModels = !hasProviderKey && Boolean(process.env.GITHUB_TOKEN);
+  // GitHub Models 模式下 GITHUB_TOKEN 只能用于 models.github.ai，
+  // 因此忽略指向其它提供方的 AI_BASE_URL（例如残留的 OpenAI / DeepSeek 配置）
+  const baseUrl =
+    args.baseUrl ||
+    (useGithubModels
+      ? 'https://models.github.ai/inference'
+      : process.env.AI_BASE_URL || 'https://api.openai.com/v1');
+  const model =
+    args.model || process.env.AI_MODEL || (useGithubModels ? 'openai/gpt-4o-mini' : 'gpt-4o-mini');
+
   const llm = {
-    baseUrl: process.env.AI_BASE_URL || (useGithubModels ? 'https://models.github.ai/inference' : 'https://api.openai.com/v1'),
+    baseUrl,
     apiKey: process.env.AI_API_KEY || process.env.OPENAI_API_KEY || (useGithubModels ? process.env.GITHUB_TOKEN : ''),
-    model: process.env.AI_MODEL || (useGithubModels ? 'openai/gpt-4o-mini' : 'gpt-4o-mini'),
+    model,
     hint: useGithubModels
       ? '提示：GitHub Models 需要 Actions 的 models: read 权限；若仍失败，可在仓库 Secret 配置 AI_API_KEY 并按需设置 AI_BASE_URL / AI_MODEL。'
       : '',

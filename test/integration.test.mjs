@@ -188,13 +188,10 @@ test('端到端：无 AI_API_KEY 时回退 GitHub Models', async (t) => {
   t.after(() => server.close());
 
   const { port } = server.address();
-  const r = await runChild(['--number', '5', '--dry-run'], {
-    ...baseEnv(port),
-    AI_API_KEY: '',
-    OPENAI_API_KEY: '',
-    AI_BASE_URL: `http://127.0.0.1:${port}/v1`,
-    AI_MODEL: 'mock-model',
-  });
+  const r = await runChild(
+    ['--number', '5', '--dry-run', '--base-url', `http://127.0.0.1:${port}/v1`, '--model', 'mock-model'],
+    { ...baseEnv(port), AI_API_KEY: '', OPENAI_API_KEY: '' },
+  );
   assert.equal(r.code, 0, `stderr: ${r.stderr}`);
   assert.match(r.stdout, /分诊记录/);
 });
