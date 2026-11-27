@@ -19,7 +19,23 @@ namespace HutaoProxyPlugin;
 /// </summary>
 internal sealed class EmbeddedProxy : IDisposable
 {
-    private static readonly string[] TargetSuffixes = { "hoyolab.com", "mihoyo.com", "hoyoverse.com", "yuanshen.com" };
+    // 精确白名单：仅对胡桃实际调用的 API 主机做 TLS 终结并改写到 Worker。
+    // 其余域名（原神登录 SDK、遥测、启动器等）一律盲转发，不拦截。
+    // 名单来源：proxy.log 中 User-Agent=Snap Hutao 的全量请求统计（2026-11-26）。
+    private static readonly HashSet<string> TargetHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bbs-api-os.hoyolab.com",
+        "api-os-takumi.hoyoverse.com",
+        "sg-hk4e-api.hoyoverse.com",
+        "sg-hyp-api.hoyoverse.com",
+        "hyp-api.mihoyo.com",
+        "sdk.hoyoverse.com",
+        "sdk-webstatic.mihoyo.com",
+        "sg-public-api.hoyolab.com",
+        "sg-downloader-api.hoyoverse.com",
+        "downloader-api.mihoyo.com",
+        "act.hoyolab.com",
+    };
 
     private readonly X509Certificate2 ca;
     private readonly string token;
@@ -182,14 +198,7 @@ internal sealed class EmbeddedProxy : IDisposable
     }
     private static bool IsTarget(string host)
     {
-        foreach (string suffix in TargetSuffixes)
-        {
-            if (host.Equals(suffix, StringComparison.OrdinalIgnoreCase) || host.EndsWith("." + suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-        return false;
+        return TargetHosts.Contains(host);
     }
 
     private async Task ServeHttpAsync(SslStream clientTls, string originalHost, CancellationToken ct)
@@ -266,6 +275,7 @@ internal sealed class EmbeddedProxy : IDisposable
         bool hasContentLength = false;
         long contentLength = 0;
         bool chunked = false;
+        List<KeyValuePair<string, string>> contentHeaders = new();
         for (int i = 1; i < lines.Length; i++)
         {
             string line = lines[i];
@@ -285,9 +295,19 @@ internal sealed class EmbeddedProxy : IDisposable
                 _ = long.TryParse(value, out contentLength);
                 continue;
             }
-            if (name.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase) && value.Contains("chunked", StringComparison.OrdinalIgnoreCase))
+            if (name.Equals("Transfer-Encoding", StringComparison.OrdinalIgnoreCase))
             {
-                chunked = true;
+                if (value.Contains("chunked", StringComparison.OrdinalIgnoreCase))
+                {
+                    chunked = true;
+                }
+                continue;
+            }
+            // Content-* 头属于 HttpContent.Headers; 塞进 HttpRequestHeaders 会被静默丢弃,
+            // 导致 POST 的 JSON body 失去 Content-Type, HoYoLAB 返回「参数异常」。
+            if (name.StartsWith("Content-", StringComparison.OrdinalIgnoreCase))
+            {
+                contentHeaders.Add(new KeyValuePair<string, string>(name, value));
                 continue;
             }
             request.Headers.TryAddWithoutValidation(name, value);
@@ -300,6 +320,7 @@ internal sealed class EmbeddedProxy : IDisposable
 
         if (request.Method == HttpMethod.Get || request.Method == HttpMethod.Head)
         {
+            ApplyContentHeaders(request, contentHeaders);
             return request;
         }
 
@@ -307,6 +328,7 @@ internal sealed class EmbeddedProxy : IDisposable
         {
             byte[] body = await ReadChunkedBodyAsync(tls, leftover, ct);
             request.Content = new ByteArrayContent(body);
+            ApplyContentHeaders(request, contentHeaders);
             return request;
         }
 
@@ -315,7 +337,25 @@ internal sealed class EmbeddedProxy : IDisposable
             byte[] body = await ReadBodyAsync(tls, leftover, contentLength, ct);
             request.Content = new ByteArrayContent(body);
         }
+
+        ApplyContentHeaders(request, contentHeaders);
         return request;
+    }
+
+    private static void ApplyContentHeaders(HttpRequestMessage request, List<KeyValuePair<string, string>> contentHeaders)
+    {
+        if (contentHeaders.Count == 0)
+        {
+            return;
+        }
+
+        request.Content ??= new ByteArrayContent(Array.Empty<byte>());
+        foreach (KeyValuePair<string, string> header in contentHeaders)
+        {
+            request.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        Logger.Write($"applied content headers: {string.Join(", ", contentHeaders.Select(h => h.Key))}");
     }
 
     private static async Task<(string Head, byte[] Leftover)> ReadHeadAsync(SslStream tls, CancellationToken ct)
