@@ -35,6 +35,7 @@ internal sealed class EmbeddedProxy : IDisposable
         "sg-downloader-api.hoyoverse.com",
         "downloader-api.mihoyo.com",
         "act.hoyolab.com",
+        "api-account-os.hoyoverse.com",
     };
 
     private readonly X509Certificate2 ca;
@@ -125,6 +126,7 @@ internal sealed class EmbeddedProxy : IDisposable
             if (!isTarget)
             {
                 // Blind relay to the requested host:443
+                Logger.Write($"blind relay {connectHost}");
                 await raw.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 Connection established\r\n\r\n"), ct);
                 await raw.FlushAsync(ct);
                 await RelayAsync(raw, connectHost, 443, ct);
@@ -514,7 +516,25 @@ internal sealed class EmbeddedProxy : IDisposable
     private static async Task RelayAsync(NetworkStream client, string host, int port, CancellationToken ct)
     {
         using TcpClient remote = new();
-        await remote.ConnectAsync(host, port, ct);
+        try
+        {
+            // 带超时连接: 被墙域可能无限丢包, 不设超时会让客户端吊死到系统级超时。
+            using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            connectCts.CancelAfter(TimeSpan.FromSeconds(8));
+            await remote.ConnectAsync(host, port, connectCts.Token);
+        }
+        catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+        {
+            Logger.Write($"blind relay connect failed for {host}: {ex.GetType().Name}");
+            try
+            {
+                byte[] err = Encoding.ASCII.GetBytes("HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                await client.WriteAsync(err, ct);
+            }
+            catch { }
+            try { client.Close(); } catch { }
+            return;
+        }
         await using NetworkStream rs = remote.GetStream();
         Task a = client.CopyToAsync(rs, ct);
         Task b = rs.CopyToAsync(client, ct);
